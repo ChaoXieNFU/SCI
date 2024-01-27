@@ -17,40 +17,43 @@ from model import *
 from multi_read_data import MemoryFriendlyLoader
 
 
-parser = argparse.ArgumentParser("SCI")
+# argparse
+parser = argparse.ArgumentParser('SCI')
 parser.add_argument('--batch_size', type=int, default=1, help='batch size')
 parser.add_argument('--cuda', default=True, type=bool, help='Use CUDA to train model')
 parser.add_argument('--gpu', type=str, default='0', help='gpu device id')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
 parser.add_argument('--epochs', type=int, default=1000, help='epochs')
 parser.add_argument('--lr', type=float, default=0.0003, help='learning rate')
-parser.add_argument('--stage', type=int, default=3, help='epochs')
-parser.add_argument('--save', type=str, default='EXP/', help='location of the data corpus')
-
+parser.add_argument('--stage', type=int, default=3, help='stage')
+parser.add_argument('--save', type=str, default='Exp/', help='location of the data corpus')
 args = parser.parse_args()
 
+# adding a new environment variable: CUDA_VISIBLE_DEVICES
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-args.save = args.save + '/' + 'Train-{}'.format(time.strftime("%Y%m%d-%H%M%S"))
+# mkdir and copy source files used this time
+args.save = os.path.join(args.save, f'Train-{time.strftime("%Y%m%d")}')  # "%Y%m%d-%H%M%S"
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
-model_path = args.save + '/model_epochs/'
+model_path = os.path.join(args.save, 'model_epochs')
 os.makedirs(model_path, exist_ok=True)
-image_path = args.save + '/image_epochs/'
+image_path = os.path.join(args.save, 'image_epochs')
 os.makedirs(image_path, exist_ok=True)
 
+# logging init
 log_format = '%(asctime)s %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format=log_format, datefmt='%m/%d %I:%M:%S %p')
-fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
+fh = logging.FileHandler(os.path.join(args.save, 'log.txt'), mode='w')
 fh.setFormatter(logging.Formatter(log_format))
 logging.getLogger().addHandler(fh)
+logging.info(f'train file name = {__file__}')
 
-logging.info("train file name = %s", os.path.split(__file__))
-
+# cuda
 if torch.cuda.is_available():
     if args.cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    if not args.cuda:
+    else:
         print("WARNING: It looks like you have a CUDA device, but aren't " +
               "using CUDA.\nRun with --cuda for optimal training speed.")
         torch.set_default_tensor_type('torch.FloatTensor')
@@ -70,17 +73,16 @@ def main():
         logging.info('no gpu device available')
         sys.exit(1)
 
-    np.random.seed(args.seed)
     cudnn.benchmark = True
-    torch.manual_seed(args.seed)
     cudnn.enabled = True
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     logging.info('gpu device = %s' % args.gpu)
     logging.info("args = %s", args)
 
 
     model = Network(stage=args.stage)
-
     model.enhance.in_conv.apply(model.weights_init)
     model.enhance.conv.apply(model.weights_init)
     model.enhance.out_conv.apply(model.weights_init)
@@ -95,11 +97,10 @@ def main():
     print(MB)
 
 
-    train_low_data_names = 'Your train dataset'
+    train_low_data_names = './datatrain'
     TrainDataset = MemoryFriendlyLoader(img_dir=train_low_data_names, task='train')
 
-
-    test_low_data_names = './data/medium'
+    test_low_data_names = './data/difficult'
     TestDataset = MemoryFriendlyLoader(img_dir=test_low_data_names, task='test')
 
     train_queue = torch.utils.data.DataLoader(
@@ -138,11 +139,11 @@ def main():
             model.eval()
             with torch.no_grad():
                 for _, (input, image_name) in enumerate(test_queue):
-                    input = Variable(input, volatile=True).cuda()
-                    image_name = image_name[0].split('\\')[-1].split('.')[0]
+                    input = input.cuda()
+                    image_name = os.path.splitext(os.path.basename(image_name[0]))[0]
                     illu_list, ref_list, input_list, atten= model(input)
                     u_name = '%s.png' % (image_name + '_' + str(epoch))
-                    u_path = image_path + '/' + u_name
+                    u_path = os.path.join(image_path, u_name)
                     save_images(ref_list[0], u_path)
 
 if __name__ == '__main__':

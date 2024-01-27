@@ -125,7 +125,7 @@ class Network(nn.Module):
         i_list, en_list, in_list, _ = self(input)
         loss = 0
         for i in range(self.stage):
-            loss += self._criterion(in_list[i], i_list[i])
+            loss += self._criterion(in_list[i], i_list[i])  # in_list: v in paper, i_list: x in paper
         return loss
 
 

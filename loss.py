@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class LossFunction(nn.Module):
     def __init__(self):
         super(LossFunction, self).__init__()
@@ -10,8 +11,7 @@ class LossFunction(nn.Module):
     def forward(self, input, illu):
         Fidelity_Loss = self.l2_loss(illu, input)
         Smooth_Loss = self.smooth_loss(input, illu)
-        return 1.5*Fidelity_Loss + Smooth_Loss
-
+        return 1.5 * Fidelity_Loss + Smooth_Loss
 
 
 class SmoothLoss(nn.Module):
@@ -27,7 +27,7 @@ class SmoothLoss(nn.Module):
         out = temp.view(input_im.shape[0], 3, input_im.shape[2], input_im.shape[3])
         return out
 
-    # output: output      input:input
+    # input:input (v^(t-1) in paper)     output: output (x^(t) in paper) 
     def forward(self, input, output):
         self.output = output
         self.input = self.rgb2yCbCr(input)
